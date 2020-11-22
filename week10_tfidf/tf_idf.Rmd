@@ -1,0 +1,84 @@
+---
+title: "Keyword Extraction using TF-IDF "
+output: html_notebook
+---
+
+Reference:
+
+* https://cran.r-project.org/web/packages/tidytext/vignettes/tf_idf.html
+
+
+```{r}
+library(readr)
+library(tidyverse)
+library(tidytext)
+```
+
+# Import Dataset
+```{r}
+all_food <- read_csv("taiwan_top_food.csv", col_names = TRUE)
+all_food
+```
+
+```{r}
+for (i in c(1:nrow(all_food))) {
+  name <- all_food[i, 1]
+  des <- all_food[i, 2]
+  print(paste(name, " : ", des))
+}
+```
+
+# Import Jieba for Word Segmentation
+```{r}
+Sys.setlocale(category = "LC_ALL", locale = "zh_TW.UTF-8")
+install.packages("jiebaR")
+library(jiebaR)
+```
+
+Create word cutter.
+```{r}
+cutter = worker()
+```
+
+Do word segmentation.
+```{R}
+food_words <- data.frame()
+food_number = dim(all_food)[1]
+
+for (row_idx in c(1:food_number)) {
+  name = as.character(all_food[row_idx,1])
+  des = as.character(all_food[row_idx,2])
+  
+  for (term in segment(des, cutter)) {
+    food_words <- rbind(food_words, c(name, term))
+  }
+}
+
+names(food_words) <- c("Food", "Term")
+food_words
+```
+# Calculate Word Frequency
+```{R}
+food_words <- food_words %>% count(Food, Term, sort = TRUE)
+food_words
+```
+```{R}
+total_words <- food_words %>% group_by(Food) %>% summarize(total = sum(n))
+total_words
+```
+```{R}
+food_words <- left_join(food_words, total_words)
+food_words
+```
+
+# Calculate TF-IDF
+```{R}
+food_words <- food_words %>%
+  bind_tf_idf(Term, Food, n)
+  # term column name, # document ID column name, #document-term count
+food_words
+```
+
+```{R}
+food_words %>% group_by(Food) %>% slice_max(order_by = tf_idf, n = 3)
+```

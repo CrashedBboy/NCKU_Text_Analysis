@@ -1,0 +1,85 @@
+---
+title: "word_cloud"
+author: "crashedbboy"
+date: "2020/11/8"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(readr)
+library(tidyverse)
+library(wordcloud2)
+```
+
+# Import Dataset
+```{r}
+all_food <- read_csv("taiwan_top_food.csv", col_names = TRUE)
+all_food
+```
+
+# Import Jieba for Word Segmentation
+```{r}
+Sys.setlocale(category = "LC_ALL", locale = "zh_TW.UTF-8")
+# install.packages("jiebaR")
+library(jiebaR)
+```
+
+Create word cutter.
+```{r}
+cutter = worker()
+```
+
+Do word segmentation.
+```{R}
+food_words <- data.frame(stringsAsFactors = FALSE)
+food_number = dim(all_food)[1]
+
+for (row_idx in c(1:food_number)) {
+  name = as.character(all_food[row_idx,1])
+  des = as.character(all_food[row_idx,2])
+  
+  for (term in segment(des, cutter)) {
+    food_words <- rbind(food_words, c(name, term), stringsAsFactors = FALSE)
+  }
+}
+
+names(food_words) <- c("Food", "Term")
+food_words
+```
+
+```{r}
+food_words <- food_words %>% count(Food, Term, sort = TRUE)
+food_words
+```
+
+```{r}
+names(food_words) = c("food", "word", "freq")
+food_words
+```
+
+```{r}
+library(ggplot2)
+ggplot(food_words, aes(freq, fill = food)) +
+  geom_histogram(show.legend = FALSE) +
+  facet_wrap(~food, ncol = 2, scales = "free_y")
+```
+
+```{r}
+beef_words = food_words %>%
+  filter(food == "牛肉麵") %>%
+  select(word, freq)
+
+wordcloud2(data = beef_words)
+```
+
+```{r}
+rice_words = food_words %>%
+  filter(food == "滷肉飯") %>%
+  select(word, freq)
+
+wordcloud2(data = rice_words)
+```
