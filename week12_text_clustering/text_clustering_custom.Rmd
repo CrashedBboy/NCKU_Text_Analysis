@@ -1,0 +1,157 @@
+---
+title: "Text Clustering (Custom Dataset)"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Reference
+
+* https://rstudio-pubs-static.s3.amazonaws.com/445820_c6663e5a79874afdae826669a9499413.html
+* http://mirlab.org/jang/books/dcpr/dcHierClustering.asp?title=3-2%20Hierarchical%20Clustering%20(%B6%A5%BCh%A6%A1%A4%C0%B8s%AAk)&language=chinese
+* https://rpubs.com/skydome20/R-Note9-Clustering
+
+## 0. Import Packages
+
+
+```{r}
+
+# Un-comment if you don't have these packages installed
+# install.packages("tm")
+# install.packages("proxy")
+# install.packages("colorspace")
+
+library(tm)
+library(proxy)
+library(colorspace)
+
+```
+
+
+## 1. Read Dataset
+
+```{r}
+
+df <- read.csv("product_description.csv", encoding = 'UTF-8', header = TRUE)
+View(df)
+```
+
+
+```{r}
+sentences <- df$description
+
+tail(sentences)
+```
+
+## 2. Preprocessing the data
+
+Create corpus object using text sentences:
+```{r}
+corpus = tm::Corpus(tm::VectorSource(sentences)) # corpus(=corpora): 語料庫, collections of documents text
+```
+
+Remove stopwords:
+```{r}
+print(tm::stopwords('english'))
+corpus_cleaned <- tm::tm_map(corpus, tm::removeWords, tm::stopwords('english'))
+```
+Do Stemming for the words:
+```{r}
+corpus_cleaned <- tm::tm_map(corpus_cleaned, tm::stemDocument, language="english")
+```
+
+Trim excessive whitespaces:
+```{r}
+corpus_cleaned <- tm::tm_map(corpus_cleaned, tm::stripWhitespace)
+```
+View processed corpus:
+```{r}
+tail(corpus_cleaned$content)
+```
+
+## 3. Text Representation
+
+
+
+
+Build Document-Term Matrix:
+```{r}
+doc_term_matrix <- tm::DocumentTermMatrix(corpus_cleaned)
+doc_term_matrix
+```
+
+Calculate TF-IDF
+```{r}
+doc_term_matrix_tfidf <- tm::weightTfIdf(doc_term_matrix)
+doc_term_matrix_tfidf
+```
+
+Remove sparse terms from a document-term matrix:
+```{r}
+doc_term_matrix_tfidf <- tm::removeSparseTerms(doc_term_matrix_tfidf, 0.999)
+doc_term_matrix_tfidf
+```
+
+Load into native R matrix:
+```{r}
+tfidf_matrix <- as.matrix(doc_term_matrix_tfidf)
+dim(tfidf_matrix)
+```
+
+Calculate distance(similarity) between documents using cosine similarity:
+```{r}
+# Cosine distance matrix (useful for specific clustering algorithms)
+dist_matrix = proxy::dist(tfidf_matrix, method = "cosine")
+dim(dist_matrix)
+```
+
+## 4. Run the clustering algorithms
+
+```{r}
+NUM_CLASS <- 3
+```
+
+1. K-means clustering:
+```{r}
+clustering_kmeans <- kmeans(dist_matrix, NUM_CLASS)
+```
+
+```{r}
+clustering_kmeans
+```
+
+2. Hierarchical clustering:
+```{r}
+hierarchicals <- hclust(dist_matrix, method = "ward.D2")
+
+hierarchical_clusters <- cutree(hierarchicals, k = NUM_CLASS)
+```
+
+```{r}
+plot(hierarchicals)
+```
+
+
+
+
+## 5. Visualize clustered results
+
+
+
+Use PCA to scale vectors' dimension (from document_n to 2):
+```{r}
+points <- cmdscale(dist_matrix, k = 2) # Running the PCA
+dim(points)
+```
+
+
+```{r}
+palette <- colorspace::diverge_hcl(NUM_CLASS) # Creating a color palette
+previous_par <- par(mfrow=c(1,2), mar = rep(1, 4)) # partitionning the plot space
+plot(points,
+     main = 'K-Means clustering',
+     col = as.factor(clustering_kmeans$cluster), xaxt = 'n', yaxt = 'n')
+plot(points,
+     main = 'Hierarchical clustering',
+     col = as.factor(hierarchical_clusters), xaxt = 'n', yaxt = 'n')
+```
