@@ -125,9 +125,6 @@ clustering_kmeans
 hierarchicals <- hclust(dist_matrix, method = "ward.D2")
 
 hierarchical_clusters <- cutree(hierarchicals, k = NUM_CLASS)
-```
-
-```{r}
 plot(hierarchicals)
 ```
 
